@@ -60,4 +60,22 @@ export default function AuthWrapper() {
   if (authorized === false) {
     return (
       <div style={{ padding: 40 }}>
-        <p>🚫 Access denied. Your email is not on the
+        <p>🚫 Access denied. Your email is not on the authorized list.</p>
+        <button onClick={handleLogout}>Logout</button>
+      </div>
+    );
+  }
+
+  if (authorized === null) {
+    return <p style={{ padding: 40 }}>🔄 Verifying access...</p>;
+  }
+
+  return (
+    <div>
+      <button onClick={handleLogout} style={{ float: "right" }}>
+        Logout
+      </button>
+      <App />
+    </div>
+  );
+}
