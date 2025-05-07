@@ -6,16 +6,22 @@ export default function AuthWrapper() {
   const [session, setSession] = useState(null);
   const [authorized, setAuthorized] = useState(null);
 
+  // ✅ Updated session tracking logic
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-    });
-
-    supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
+  // ✅ Authorization check against authorized_users table
   useEffect(() => {
     const checkAuthorization = async () => {
       if (session) {
@@ -33,6 +39,7 @@ export default function AuthWrapper() {
     checkAuthorization();
   }, [session]);
 
+  // 🔐 Handles sending the magic link
   const handleLogin = async (e) => {
     e.preventDefault();
     const email = e.target.email.value;
@@ -41,12 +48,14 @@ export default function AuthWrapper() {
     else alert("Check your email for the login link!");
   };
 
+  // 🔓 Logout handler
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
     setAuthorized(null);
   };
 
+  // 🟡 No session yet = show login form
   if (!session) {
     return (
       <form onSubmit={handleLogin} style={{ padding: 40 }}>
@@ -57,6 +66,7 @@ export default function AuthWrapper() {
     );
   }
 
+  // ❌ Logged in but not on the authorized list
   if (authorized === false) {
     return (
       <div style={{ padding: 40 }}>
@@ -66,16 +76,4 @@ export default function AuthWrapper() {
     );
   }
 
-  if (authorized === null) {
-    return <p style={{ padding: 40 }}>🔄 Verifying access...</p>;
-  }
-
-  return (
-    <div>
-      <button onClick={handleLogout} style={{ float: "right" }}>
-        Logout
-      </button>
-      <App />
-    </div>
-  );
-}
+  // ⏳ Waiting on access check
