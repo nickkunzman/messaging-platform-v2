@@ -32,6 +32,8 @@ export default function AuthWrapper() {
           .select("*")
           .eq("email", userEmail);
 
+        console.log("Returned from Supabase:", data); // ✅ Debug: see result of query
+
         if (error) {
           console.error("❌ Supabase query error:", error);
         }
@@ -86,7 +88,6 @@ export default function AuthWrapper() {
     return <p style={{ padding: 40 }}>🔄 Verifying access...</p>;
   }
 
-  // ✅ Show list of students
   return (
     <div style={{ padding: 40 }}>
       <button onClick={handleLogout} style={{ float: "right" }}>
