@@ -7,7 +7,6 @@ export default function AuthWrapper() {
   const [authorized, setAuthorized] = useState(null);
   const [studentRecords, setStudentRecords] = useState([]);
 
-  // Get session and listen for login changes
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -22,25 +21,16 @@ export default function AuthWrapper() {
     };
   }, []);
 
-  // Check authorization by looking up email
   useEffect(() => {
     const checkAuthorization = async () => {
-      if (!session) return;
-
-      const userEmail = session?.user?.email;
-      console.log("🔍 Using email:", userEmail);
-
-      if (!userEmail) {
-        setAuthorized(false);
-        return;
-      }
+      if (!session?.user?.email) return;
+      const userEmail = session.user.email;
+      console.log("🔍 Checking access for:", userEmail);
 
       const { data, error } = await supabase
         .from("authorized_users")
         .select("*")
         .eq("email", userEmail);
-
-      console.log("Returned from Supabase:", data);
 
       if (error) {
         console.error("❌ Supabase query error:", error);
@@ -59,12 +49,23 @@ export default function AuthWrapper() {
     checkAuthorization();
   }, [session]);
 
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    const email = e.target.email.value;
+    const password = e.target.password.value;
+
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) alert("Sign-up error: " + error.message);
+    else alert("✅ Check your email to confirm your account, then log in.");
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     const email = e.target.email.value;
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    if (error) alert("Error sending login link: " + error.message);
-    else alert("✅ Check your email for the login link!");
+    const password = e.target.password.value;
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) alert("Login error: " + error.message);
   };
 
   const handleLogout = async () => {
@@ -76,11 +77,25 @@ export default function AuthWrapper() {
 
   if (!session) {
     return (
-      <form onSubmit={handleLogin} style={{ padding: 40 }}>
+      <div style={{ padding: 40 }}>
         <h2>Parent Login</h2>
-        <input type="email" name="email" placeholder="Enter your email" required />
-        <button type="submit">Send Magic Link</button>
-      </form>
+        <form onSubmit={handleLogin}>
+          <input type="email" name="email" placeholder="Email" required />
+          <br />
+          <input type="password" name="password" placeholder="Password" required />
+          <br />
+          <button type="submit">Log In</button>
+        </form>
+        <hr />
+        <h3>New? Sign Up:</h3>
+        <form onSubmit={handleSignup}>
+          <input type="email" name="email" placeholder="Email" required />
+          <br />
+          <input type="password" name="password" placeholder="Password" required />
+          <br />
+          <button type="submit">Sign Up</button>
+        </form>
+      </div>
     );
   }
 
@@ -99,7 +114,9 @@ export default function AuthWrapper() {
 
   return (
     <div style={{ padding: 40 }}>
-      <button onClick={handleLogout} style={{ float: "right" }}>Logout</button>
+      <button onClick={handleLogout} style={{ float: "right" }}>
+        Logout
+      </button>
       <h2>Welcome, {studentRecords[0]?.parent_name}</h2>
       <p>Students:</p>
       <ul>
