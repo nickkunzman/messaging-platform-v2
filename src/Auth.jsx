@@ -6,7 +6,6 @@ export default function AuthWrapper() {
   const [session, setSession] = useState(null);
   const [authorized, setAuthorized] = useState(null);
 
-  // Listen for login state and restore session after magic link
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -21,16 +20,21 @@ export default function AuthWrapper() {
     };
   }, []);
 
-  // Check if user is in the authorized_users table
   useEffect(() => {
     const checkAuthorization = async () => {
       if (session) {
         const userEmail = session.user.email;
-        const { data } = await supabase
+        console.log("🔍 Logged-in email:", userEmail); // ✅ Debug: shows the session email
+
+        const { data, error } = await supabase
           .from("authorized_users")
           .select("*")
           .eq("email", userEmail)
           .single();
+
+        if (error) {
+          console.error("❌ Supabase query error:", error);
+        }
 
         setAuthorized(!!data);
       }
@@ -39,7 +43,6 @@ export default function AuthWrapper() {
     checkAuthorization();
   }, [session]);
 
-  // Handle login form submit
   const handleLogin = async (e) => {
     e.preventDefault();
     const email = e.target.email.value;
@@ -48,14 +51,12 @@ export default function AuthWrapper() {
     else alert("✅ Check your email for the login link!");
   };
 
-  // Handle logout
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
     setAuthorized(null);
   };
 
-  // Login form
   if (!session) {
     return (
       <form onSubmit={handleLogin} style={{ padding: 40 }}>
@@ -66,7 +67,6 @@ export default function AuthWrapper() {
     );
   }
 
-  // Access denied
   if (authorized === false) {
     return (
       <div style={{ padding: 40 }}>
@@ -76,12 +76,10 @@ export default function AuthWrapper() {
     );
   }
 
-  // Waiting for auth check
   if (authorized === null) {
     return <p style={{ padding: 40 }}>🔄 Verifying access...</p>;
   }
 
-  // Authenticated and authorized
   return (
     <div style={{ padding: 40 }}>
       <button onClick={handleLogout} style={{ float: "right" }}>
