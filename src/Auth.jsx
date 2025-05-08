@@ -3,10 +3,11 @@ import { supabase } from "./supabaseClient";
 import App from "./App";
 
 export default function AuthWrapper() {
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState(undefined); // undefined = still loading
   const [authorized, setAuthorized] = useState(null);
   const [studentRecords, setStudentRecords] = useState([]);
 
+  // Session loading and listener
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -21,6 +22,7 @@ export default function AuthWrapper() {
     };
   }, []);
 
+  // Authorization check
   useEffect(() => {
     const checkAuthorization = async () => {
       if (session) {
@@ -32,7 +34,7 @@ export default function AuthWrapper() {
           .select("*")
           .eq("email", userEmail);
 
-        console.log("Returned from Supabase:", data); // ✅ Debug: see result of query
+        console.log("Returned from Supabase:", data); // Debug log
 
         if (error) {
           console.error("❌ Supabase query error:", error);
@@ -65,6 +67,12 @@ export default function AuthWrapper() {
     setStudentRecords([]);
   };
 
+  // 🔄 Wait while checking session
+  if (session === undefined) {
+    return <p style={{ padding: 40 }}>🔄 Loading session...</p>;
+  }
+
+  // 🔐 No session yet = show login form
   if (!session) {
     return (
       <form onSubmit={handleLogin} style={{ padding: 40 }}>
@@ -75,6 +83,7 @@ export default function AuthWrapper() {
     );
   }
 
+  // ❌ Logged in, but not on authorized list
   if (authorized === false) {
     return (
       <div style={{ padding: 40 }}>
@@ -84,10 +93,12 @@ export default function AuthWrapper() {
     );
   }
 
+  // ⏳ Waiting on access check
   if (authorized === null) {
     return <p style={{ padding: 40 }}>🔄 Verifying access...</p>;
   }
 
+  // ✅ Logged in and authorized
   return (
     <div style={{ padding: 40 }}>
       <button onClick={handleLogout} style={{ float: "right" }}>
