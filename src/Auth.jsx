@@ -3,40 +3,31 @@ import { supabase } from "./supabaseClient";
 import App from "./App";
 
 export default function AuthWrapper() {
-  const [session, setSession] = useState(undefined);
+  const [session, setSession] = useState(null);
   const [authorized, setAuthorized] = useState(null);
   const [studentRecords, setStudentRecords] = useState([]);
 
+  // Get session and listen for login changes
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
 
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
     return () => {
-      authListener?.unsubscribe();
+      listener?.unsubscribe();
     };
   }, []);
 
+  // Check authorization by looking up email
   useEffect(() => {
     const checkAuthorization = async () => {
-      let userEmail = null;
+      if (!session) return;
 
-      if (session?.user) {
-        userEmail = session.user.email;
-      } else {
-        const { data: userData, error } = await supabase.auth.getUser();
-        if (error) {
-          console.error("❌ Fallback getUser() failed:", error);
-          setAuthorized(false);
-          return;
-        }
-        userEmail = userData?.user?.email;
-      }
-
+      const userEmail = session?.user?.email;
       console.log("🔍 Using email:", userEmail);
 
       if (!userEmail) {
@@ -53,9 +44,11 @@ export default function AuthWrapper() {
 
       if (error) {
         console.error("❌ Supabase query error:", error);
+        setAuthorized(false);
+        return;
       }
 
-      if (data && data.length > 0) {
+      if (data?.length > 0) {
         setAuthorized(true);
         setStudentRecords(data);
       } else {
@@ -80,10 +73,6 @@ export default function AuthWrapper() {
     setAuthorized(null);
     setStudentRecords([]);
   };
-
-  if (session === undefined) {
-    return <p style={{ padding: 40 }}>🔄 Loading session...</p>;
-  }
 
   if (!session) {
     return (
@@ -110,9 +99,7 @@ export default function AuthWrapper() {
 
   return (
     <div style={{ padding: 40 }}>
-      <button onClick={handleLogout} style={{ float: "right" }}>
-        Logout
-      </button>
+      <button onClick={handleLogout} style={{ float: "right" }}>Logout</button>
       <h2>Welcome, {studentRecords[0]?.parent_name}</h2>
       <p>Students:</p>
       <ul>
