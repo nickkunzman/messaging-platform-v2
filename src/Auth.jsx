@@ -3,11 +3,10 @@ import { supabase } from "./supabaseClient";
 import App from "./App";
 
 export default function AuthWrapper() {
-  const [session, setSession] = useState(undefined); // undefined = still loading
+  const [session, setSession] = useState(undefined);
   const [authorized, setAuthorized] = useState(null);
   const [studentRecords, setStudentRecords] = useState([]);
 
-  // Session loading and listener
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -22,30 +21,45 @@ export default function AuthWrapper() {
     };
   }, []);
 
-  // Authorization check
   useEffect(() => {
     const checkAuthorization = async () => {
-      if (session) {
-        const userEmail = session.user.email;
-        console.log("🔍 Logged-in email:", userEmail);
+      let userEmail = null;
 
-        const { data, error } = await supabase
-          .from("authorized_users")
-          .select("*")
-          .eq("email", userEmail);
-
-        console.log("Returned from Supabase:", data); // Debug log
-
+      if (session?.user) {
+        userEmail = session.user.email;
+      } else {
+        const { data: userData, error } = await supabase.auth.getUser();
         if (error) {
-          console.error("❌ Supabase query error:", error);
-        }
-
-        if (data && data.length > 0) {
-          setAuthorized(true);
-          setStudentRecords(data);
-        } else {
+          console.error("❌ Fallback getUser() failed:", error);
           setAuthorized(false);
+          return;
         }
+        userEmail = userData?.user?.email;
+      }
+
+      console.log("🔍 Using email:", userEmail);
+
+      if (!userEmail) {
+        setAuthorized(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("authorized_users")
+        .select("*")
+        .eq("email", userEmail);
+
+      console.log("Returned from Supabase:", data);
+
+      if (error) {
+        console.error("❌ Supabase query error:", error);
+      }
+
+      if (data && data.length > 0) {
+        setAuthorized(true);
+        setStudentRecords(data);
+      } else {
+        setAuthorized(false);
       }
     };
 
@@ -67,12 +81,10 @@ export default function AuthWrapper() {
     setStudentRecords([]);
   };
 
-  // 🔄 Wait while checking session
   if (session === undefined) {
     return <p style={{ padding: 40 }}>🔄 Loading session...</p>;
   }
 
-  // 🔐 No session yet = show login form
   if (!session) {
     return (
       <form onSubmit={handleLogin} style={{ padding: 40 }}>
@@ -83,7 +95,6 @@ export default function AuthWrapper() {
     );
   }
 
-  // ❌ Logged in, but not on authorized list
   if (authorized === false) {
     return (
       <div style={{ padding: 40 }}>
@@ -93,12 +104,10 @@ export default function AuthWrapper() {
     );
   }
 
-  // ⏳ Waiting on access check
   if (authorized === null) {
     return <p style={{ padding: 40 }}>🔄 Verifying access...</p>;
   }
 
-  // ✅ Logged in and authorized
   return (
     <div style={{ padding: 40 }}>
       <button onClick={handleLogout} style={{ float: "right" }}>
