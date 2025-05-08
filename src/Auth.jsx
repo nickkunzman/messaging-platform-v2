@@ -9,7 +9,6 @@ export default function AuthWrapper() {
   const [authMode, setAuthMode] = useState("login");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Session listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -24,13 +23,11 @@ export default function AuthWrapper() {
     };
   }, []);
 
-  // Authorization check
   useEffect(() => {
     const checkAuthorization = async () => {
       if (!session) return;
 
-      const userEmail = session?.user?.email;
-
+      const userEmail = session?.user?.email?.trim().toLowerCase();
       const { data, error } = await supabase
         .from("authorized_users")
         .select("*")
@@ -48,7 +45,6 @@ export default function AuthWrapper() {
     checkAuthorization();
   }, [session]);
 
-  // Handle auth form submission
   const handleAuth = async (e) => {
     e.preventDefault();
     setErrorMsg("");
