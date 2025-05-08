@@ -6,7 +6,10 @@ export default function AuthWrapper() {
   const [session, setSession] = useState(null);
   const [authorized, setAuthorized] = useState(null);
   const [studentRecords, setStudentRecords] = useState([]);
+  const [authMode, setAuthMode] = useState("login");
+  const [errorMsg, setErrorMsg] = useState("");
 
+  // Session listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -21,51 +24,53 @@ export default function AuthWrapper() {
     };
   }, []);
 
+  // Authorization check
   useEffect(() => {
     const checkAuthorization = async () => {
-      if (!session?.user?.email) return;
-      const userEmail = session.user.email;
-      console.log("🔍 Checking access for:", userEmail);
+      if (!session) return;
+
+      const userEmail = session?.user?.email;
 
       const { data, error } = await supabase
         .from("authorized_users")
         .select("*")
         .eq("email", userEmail);
 
-      if (error) {
-        console.error("❌ Supabase query error:", error);
+      if (error || !data || data.length === 0) {
         setAuthorized(false);
         return;
       }
 
-      if (data?.length > 0) {
-        setAuthorized(true);
-        setStudentRecords(data);
-      } else {
-        setAuthorized(false);
-      }
+      setAuthorized(true);
+      setStudentRecords(data);
     };
 
     checkAuthorization();
   }, [session]);
 
-  const handleSignup = async (e) => {
+  // Handle auth form submission
+  const handleAuth = async (e) => {
     e.preventDefault();
-    const email = e.target.email.value;
-    const password = e.target.password.value;
+    setErrorMsg("");
+    const email = e.target.email.value.trim();
+    const password = e.target.password.value.trim();
 
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) alert("Sign-up error: " + error.message);
-    else alert("✅ Check your email to confirm your account, then log in.");
-  };
+    if (!email || !password) {
+      setErrorMsg("Please enter both email and password.");
+      return;
+    }
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    const email = e.target.email.value;
-    const password = e.target.password.value;
-
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) alert("Login error: " + error.message);
+    try {
+      if (authMode === "login") {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+      }
+    } catch (err) {
+      setErrorMsg(err.message);
+    }
   };
 
   const handleLogout = async () => {
@@ -73,28 +78,26 @@ export default function AuthWrapper() {
     setSession(null);
     setAuthorized(null);
     setStudentRecords([]);
+    setErrorMsg("");
+    setAuthMode("login");
   };
 
   if (!session) {
     return (
       <div style={{ padding: 40 }}>
-        <h2>Parent Login</h2>
-        <form onSubmit={handleLogin}>
-          <input type="email" name="email" placeholder="Email" required />
-          <br />
-          <input type="password" name="password" placeholder="Password" required />
-          <br />
-          <button type="submit">Log In</button>
+        <h2>{authMode === "login" ? "Log In" : "Sign Up"}</h2>
+        <form onSubmit={handleAuth} style={{ marginBottom: 20 }}>
+          <input type="email" name="email" placeholder="Email" required style={{ display: "block", margin: "10px 0" }} />
+          <input type="password" name="password" placeholder="Password" required style={{ display: "block", margin: "10px 0" }} />
+          <button type="submit">{authMode === "login" ? "Log In" : "Sign Up"}</button>
         </form>
-        <hr />
-        <h3>New? Sign Up:</h3>
-        <form onSubmit={handleSignup}>
-          <input type="email" name="email" placeholder="Email" required />
-          <br />
-          <input type="password" name="password" placeholder="Password" required />
-          <br />
-          <button type="submit">Sign Up</button>
-        </form>
+        {errorMsg && <p style={{ color: "red" }}>{errorMsg}</p>}
+        <p style={{ marginTop: 10 }}>
+          {authMode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
+          <button onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setErrorMsg(""); }}>
+            {authMode === "login" ? "Sign Up" : "Log In"}
+          </button>
+        </p>
       </div>
     );
   }
@@ -114,11 +117,9 @@ export default function AuthWrapper() {
 
   return (
     <div style={{ padding: 40 }}>
-      <button onClick={handleLogout} style={{ float: "right" }}>
-        Logout
-      </button>
-      <h2>Welcome, {studentRecords[0]?.parent_name}</h2>
-      <p>Students:</p>
+      <button onClick={handleLogout} style={{ float: "right" }}>Logout</button>
+      <h2>Welcome!</h2>
+      <p>Your students:</p>
       <ul>
         {studentRecords.map((record, index) => (
           <li key={index}>
