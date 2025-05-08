@@ -5,6 +5,7 @@ import App from "./App";
 export default function AuthWrapper() {
   const [session, setSession] = useState(null);
   const [authorized, setAuthorized] = useState(null);
+  const [studentRecords, setStudentRecords] = useState([]);
 
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -24,18 +25,23 @@ export default function AuthWrapper() {
     const checkAuthorization = async () => {
       if (session) {
         const userEmail = session.user.email;
-        console.log("🔍 Logged-in email:", userEmail); // ✅ Debug: shows the session email
+        console.log("🔍 Logged-in email:", userEmail);
 
         const { data, error } = await supabase
           .from("authorized_users")
           .select("*")
-          .eq("email", userEmail)
+          .eq("email", userEmail);
 
         if (error) {
           console.error("❌ Supabase query error:", error);
         }
 
-        setAuthorized(!!data);
+        if (data && data.length > 0) {
+          setAuthorized(true);
+          setStudentRecords(data);
+        } else {
+          setAuthorized(false);
+        }
       }
     };
 
@@ -54,6 +60,7 @@ export default function AuthWrapper() {
     await supabase.auth.signOut();
     setSession(null);
     setAuthorized(null);
+    setStudentRecords([]);
   };
 
   if (!session) {
@@ -79,11 +86,23 @@ export default function AuthWrapper() {
     return <p style={{ padding: 40 }}>🔄 Verifying access...</p>;
   }
 
+  // ✅ Show list of students
   return (
     <div style={{ padding: 40 }}>
       <button onClick={handleLogout} style={{ float: "right" }}>
         Logout
       </button>
+      <h2>Welcome, {studentRecords[0]?.parent_name}</h2>
+      <p>Students:</p>
+      <ul>
+        {studentRecords.map((record, index) => (
+          <li key={index}>
+            {record.student_name} – Grade {record.grade}
+            {record.teacher ? ` – ${record.teacher}` : ""}
+          </li>
+        ))}
+      </ul>
+      <hr style={{ margin: "20px 0" }} />
       <App />
     </div>
   );
