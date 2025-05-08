@@ -30,7 +30,6 @@ export default function AuthWrapper() {
           .from("authorized_users")
           .select("*")
           .eq("email", userEmail)
-          .single();
 
         if (error) {
           console.error("❌ Supabase query error:", error);
